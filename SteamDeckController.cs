@@ -1,192 +1,259 @@
 ﻿using System.Runtime.InteropServices;
 using static System.Runtime.InteropServices.Marshal;
+using static HidApi;
+using static SteamDeckController.Button;
+using static SteamDeckController.Axis;
+using System.Runtime.CompilerServices;
 
 static class SteamDeckController {
 
   public static UInt16 vendorId = 10462;
   public static UInt16 productId = 4613;
   public static UInt16 inputBufferLen = 64;
-    
+  private static byte[] disableMouseEmulationBuffer = new byte[] { 0x87, 0x03, 0x08, 0x07 };
+  private static byte[] disableButtonEmulationBuffer = new byte[] { 0x81, 0x00 };
+  private static byte[] featureReportRequest = new byte[inputBufferLen + 1];
+  private static byte[] featureReportResponse = new byte[inputBufferLen + 1];
 
   [StructLayout(LayoutKind.Sequential)]
-  public struct HidInputState {
-    public byte ptype;          //0x00
-    public byte _a1;            //0x01 
-    public byte _a2;            //0x02 
-    public byte _a3;            //0x03
-    public UInt32 seq;          //0x04 
-    public UInt16 buttons0;     //0x09 
-    public byte buttons1;       //0x0A
-    public byte buttons2;       //0x0C
-    public byte buttons3;       //0x0D
-    public byte buttons4;       //0x0E
-    public byte buttons5;       //0x0E
-    public Int16 lpad_x;        //0x10
-    public Int16 lpad_y;        //0x12
-    public Int16 rpad_x;        //0x13
-    public Int16 rpad_y;        //0x16
-    public Int16 accel_x;       //0x18
-    public Int16 accel_y;       //0x1A
-    public Int16 accel_z;       //0x1C
-    public Int16 gpitch;        //0x1E
-    public Int16 gyaw;          //0x20
-    public Int16 groll;         //0x22
-    public Int16 q1;            //0x24
-    public Int16 q2;            //0x26
-    public Int16 q3;            //0x28
-    public Int16 q4;            //0x2A
-    public Int16 ltrig;         //0x2C
-    public Int16 rtrig;         //0x2E
-    public Int16 lthumb_x;      //0x30
-    public Int16 lthumb_y;      //0x32
-    public Int16 rthumb_x;      //0x34
-    public Int16 rthumb_y;      //0x36
-    public Int16 lpad_pressure; //0x38
-    public Int16 rpad_pressure; //0x3A
-
-    public static bool isPressed(UInt16 inputButtonsGroup, UInt16 valueToCheck) {
-      return (inputButtonsGroup & valueToCheck) == valueToCheck;
-    }
-  }
-
   public struct InputState {
-    public bool buttonA;
-    public bool buttonB;
-    public bool buttonX;
-    public bool buttonY;
+    private byte ptype;         
+    private byte _a1;            
+    private byte _a2;            
+    private byte _a3;           
+    private UInt32 seq;          
+    private UInt16 buttons0;     
+    private byte buttons1;      
+    private byte buttons2;      
+    private byte buttons3;      
+    private byte buttons4;      
+    private byte buttons5;      
+    private Int16 lpad_x;       
+    private Int16 lpad_y;       
+    private Int16 rpad_x;       
+    private Int16 rpad_y;       
+    private Int16 accel_x;      
+    private Int16 accel_y;      
+    private Int16 accel_z;      
+    private Int16 gpitch;       
+    private Int16 gyaw;         
+    private Int16 groll;        
+    private Int16 q1;           
+    private Int16 q2;           
+    private Int16 q3;           
+    private Int16 q4;           
+    private Int16 ltrig;        
+    private Int16 rtrig;        
+    private Int16 lthumb_x;     
+    private Int16 lthumb_y;     
+    private Int16 rthumb_x;     
+    private Int16 rthumb_y;     
+    private Int16 lpad_pressure;
+    private Int16 rpad_pressure;
 
-    public bool buttonDpadDown;
-    public bool buttonDpadUp;
-    public bool buttonDpadLeft;
-    public bool buttonDpadRight;
+    public bool ButtonA => GetButton(Button.A);
+    public bool ButtonB => GetButton(Button.B);
+    public bool ButtonX => GetButton(Button.X);
+    public bool ButtonY => GetButton(Button.Y);
+    public bool ButtonDpadDown => GetButton(Button.DpadDown);
+    public bool ButtonDpadUp => GetButton(Button.DpadUp);
+    public bool ButtonDpadLeft => GetButton(Button.DpadLeft);
+    public bool ButtonDpadRight => GetButton(Button.DpadRight);
+    public bool ButtonMenu => GetButton(Button.Menu);
+    public bool ButtonSteam => GetButton(Button.Steam);
+    public bool ButtonOptions => GetButton(Button.Options);
+    public bool QuickAccess => GetButton(Button.QuickAccess);
+    public bool ButtonL1 => GetButton(Button.L1);
+    public bool L2 => GetButton(Button.L2);
+    public bool L4 => GetButton(Button.L4);
+    public bool L5 => GetButton(Button.L5);
+    public bool ButtonR1 => GetButton(Button.R1);
+    public bool R2 => GetButton(Button.R2);
+    public bool R4 => GetButton(Button.R4);
+    public bool R5 => GetButton(Button.R5);
+    public bool LeftPadTouch => GetButton(Button.LeftPadTouch);
+    public bool LeftPadPress => GetButton(Button.LeftPadPress);
+    public bool RightPadTouch => GetButton(Button.RightPadTouch);
+    public bool RightPadPress => GetButton(Button.RightPadPress);
+    public bool LeftStickTouch => GetButton(Button.LeftStickTouch);
+    public bool ButtonLeftStickPress => GetButton(Button.LeftStickPress);
+    public bool RightStickTouch => GetButton(Button.RightStickTouch);
+    public bool ButtonRightStickPress => GetButton(Button.RightStickPress);
 
-    public bool buttonMenu;
-    public bool buttonSteam;
-    public bool buttonOptions;
-    public bool buttonQuickAccess;
-
-    public bool buttonL1;
-    public bool buttonL2;
-    public bool buttonL4;
-    public bool buttonL5;
-
-    public bool buttonR1;
-    public bool buttonR2;
-    public bool buttonR4;
-    public bool buttonR5;
-
-    public bool leftPadTouch;
-    public bool leftPadPress;
-    public bool rightPadTouch;
-    public bool rightPadPress;
-
-    public bool leftStickTouch;
-    public bool leftStickPress;
-    public bool rightStickTouch;
-    public bool rightStickPress;
-
-    public Int16 leftStickX;
-    public Int16 leftStickY;
-    public Int16 rightStickX;
-    public Int16 rightStickY;
-
-    public Int16 leftPadX;
-    public Int16 leftPadY;
-    public Int16 rightPadX;
-    public Int16 rightPadY;
-
-    public Int16 leftPadPressure;
-    public Int16 rightPadPressure;
-
-    public Int16 leftTrigger;
-    public Int16 rightTrigger;
-
-    public Int16 gyroAccelX;
-    public Int16 gyroAccelY;
-    public Int16 gyroAccelZ;
-
-    public Int16 gyroYaw;
-    public Int16 gyroRoll;
-    public Int16 gyroPitch;
-
-    public Int16 q1;
-    public Int16 q2;
-    public Int16 q3;
-    public Int16 q4;
+    public short AxisLeftStickX => GetAxis(Axis.LeftStickX);
+    public short AxisLeftStickY => GetAxis(Axis.LeftStickY);
+    public short AxisRightStickX => GetAxis(Axis.RightStickX);
+    public short AxisRightStickY => GetAxis(Axis.RightStickY);
+    public short LeftPadX => GetAxis(Axis.LeftPadX);
+    public short LeftPadY => GetAxis(Axis.LeftPadY);
+    public short RightPadX => GetAxis(Axis.RightPadX);
+    public short RightPadY => GetAxis(Axis.RightPadY);
+    public short LeftPadPressure => GetAxis(Axis.LeftPadPressure);
+    public short RightPadPressure => GetAxis(Axis.RightPadPressure);
+    public short AxisLeftTrigger => GetAxis(Axis.LeftTrigger);
+    public short AxisRightTrigger => GetAxis(Axis.RightTrigger);
+    public short GyroAccelX => GetAxis(Axis.GyroAccelX);
+    public short GyroAccelY => GetAxis(Axis.GyroAccelY);
+    public short GyroAccelZ => GetAxis(Axis.GyroAccelZ);
+    public short GyroYaw => GetAxis(Axis.GyroYaw);
+    public short GyroRoll => GetAxis(Axis.GyroRoll);
+    public short GyroPitch => GetAxis(Axis.GyroPitch);
+    public short Q1 => GetAxis(Axis.Q1);
+    public short Q2 => GetAxis(Axis.Q2);
+    public short Q3 => GetAxis(Axis.Q3);
+    public short Q4 => GetAxis(Axis.Q4);
 
     public InputState(byte[] buffer) {
-      // convert byte[] buffer to HidInputState struct
       var handle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
-      HidInputState hidInput;
+      InputState hidInput;
       try {
-        hidInput = (HidInputState)PtrToStructure(handle.AddrOfPinnedObject(), typeof(HidInputState));
+        this = (InputState)PtrToStructure(handle.AddrOfPinnedObject(), typeof(InputState));
       }
       finally {
         handle.Free();
       }
+    }
 
-      buttonA = HidInputState.isPressed(hidInput.buttons0, 0b0000000010000000);
-      buttonB = HidInputState.isPressed(hidInput.buttons0, 0b0000000000100000);
-      buttonX = HidInputState.isPressed(hidInput.buttons0, 0b0000000001000000);
-      buttonY = HidInputState.isPressed(hidInput.buttons0, 0b0000000000010000);
+    public bool GetButton(SteamDeckController.Button button) {
+      switch (button) {
+        case Button.A: return IsSet(buttons0, 0b0000000010000000);
+        case Button.B: return IsSet(buttons0, 0b0000000000100000);
+        case Button.X: return IsSet(buttons0, 0b0000000001000000);
+        case Button.Y: return IsSet(buttons0, 0b0000000000010000);
+        case Button.DpadDown: return IsSet(buttons0, 0b0000100000000000);
+        case Button.DpadUp: return IsSet(buttons0, 0b0000000100000000);
+        case Button.DpadLeft: return IsSet(buttons0, 0b0000010000000000);
+        case Button.DpadRight: return IsSet(buttons0, 0b0000001000000000);
+        case Button.Menu: return IsSet(buttons0, 0b0001000000000000);
+        case Button.Steam: return IsSet(buttons0, 0b0010000000000000);
+        case Button.Options: return IsSet(buttons0, 0b0100000000000000);
+        case Button.QuickAccess: return IsSet(buttons5, 0b00000100);
+        case Button.L1: return IsSet(buttons0, 0b0000000000001000);
+        case Button.L2: return IsSet(buttons0, 0b0000000000000010);
+        case Button.L4: return IsSet(buttons4, 0b00000010);
+        case Button.L5: return IsSet(buttons0, 0b1000000000000000);
+        case Button.R1: return IsSet(buttons0, 0b0000000000000100);
+        case Button.R2: return IsSet(buttons0, 0b0000000000000001);
+        case Button.R4: return IsSet(buttons4, 0b00000100);
+        case Button.R5: return IsSet(buttons1, 0b00000001);
 
-      buttonDpadDown = HidInputState.isPressed(hidInput.buttons0, 0b0000100000000000);
-      buttonDpadUp = HidInputState.isPressed(hidInput.buttons0, 0b0000000100000000);
-      buttonDpadLeft = HidInputState.isPressed(hidInput.buttons0, 0b0000010000000000);
-      buttonDpadRight = HidInputState.isPressed(hidInput.buttons0, 0b0000001000000000);
+        case Button.LeftPadTouch: return IsSet(buttons1, 0b00001000);
+        case Button.LeftPadPress: return IsSet(buttons1, 0b00000010);
+        case Button.RightPadTouch: return IsSet(buttons1, 0b00010000);
+        case Button.RightPadPress: return IsSet(buttons1, 0b00000100);
 
-      buttonMenu = HidInputState.isPressed(hidInput.buttons0, 0b0001000000000000);
-      buttonSteam = HidInputState.isPressed(hidInput.buttons0, 0b0010000000000000);
-      buttonOptions = HidInputState.isPressed(hidInput.buttons0, 0b0100000000000000);
-      buttonQuickAccess = HidInputState.isPressed(hidInput.buttons5, 0b00000100);
+        case Button.LeftStickTouch: return IsSet(buttons4, 0b01000000);
+        case Button.LeftStickPress: return IsSet(buttons1, 0b01000000);
+        case Button.RightStickTouch: return IsSet(buttons4, 0b10000000);
+        case Button.RightStickPress: return IsSet(buttons2, 0b00000100);
+        default:
+          throw new NotImplementedException("Unsupported Steam Deck Controller Button passed as argument");
+      }
+    }
 
-      buttonL1 = HidInputState.isPressed(hidInput.buttons0, 0b0000000000001000);
-      buttonL2 = HidInputState.isPressed(hidInput.buttons0, 0b0000000000000010);
-      buttonL4 = HidInputState.isPressed(hidInput.buttons4, 0b00000010);
-      buttonL5 = HidInputState.isPressed(hidInput.buttons0, 0b1000000000000000);
+    public Int16 GetAxis(SteamDeckController.Axis axis) {
+      switch (axis) {
+        case Axis.LeftStickX: return lthumb_x;
+        case Axis.LeftStickY: return lthumb_y;
+        case Axis.RightStickX: return rthumb_x;
+        case Axis.RightStickY: return rthumb_y;
 
-      buttonR1 = HidInputState.isPressed(hidInput.buttons0, 0b0000000000000100);
-      buttonR2 = HidInputState.isPressed(hidInput.buttons0, 0b0000000000000001);
-      buttonR4 = HidInputState.isPressed(hidInput.buttons4, 0b00000100);
-      buttonR5 = HidInputState.isPressed(hidInput.buttons1, 0b00000001);
+        case Axis.LeftPadX: return lpad_x;
+        case Axis.LeftPadY: return lpad_y;
+        case Axis.RightPadX: return rpad_x;
+        case Axis.RightPadY: return rpad_y;
 
-      leftPadTouch = HidInputState.isPressed(hidInput.buttons1, 0b00001000);
-      leftPadPress = HidInputState.isPressed(hidInput.buttons1, 0b00000010);
-      rightPadTouch = HidInputState.isPressed(hidInput.buttons1, 0b00010000);
-      rightPadPress = HidInputState.isPressed(hidInput.buttons1, 0b00000100);
+        case Axis.LeftPadPressure: return lpad_pressure;
+        case Axis.RightPadPressure: return rpad_pressure;
+        case Axis.LeftTrigger: return ltrig;
+        case Axis.RightTrigger: return rtrig;
+        case Axis.GyroAccelX: return accel_x;
+        case Axis.GyroAccelY: return accel_y;
+        case Axis.GyroAccelZ: return accel_z;
+        case Axis.GyroYaw: return gyaw;
+        case Axis.GyroRoll: return groll;
+        case Axis.GyroPitch: return gpitch;
+        case Axis.Q1: return q1;
+        case Axis.Q2: return q2;
+        case Axis.Q3: return q3;
+        case Axis.Q4: return q4;
+        default:
+          throw new NotImplementedException("Unsupported Steam Deck Controller Axis passed as argument");
+      }
+    }
 
-      leftStickTouch = HidInputState.isPressed(hidInput.buttons4, 0b01000000);
-      leftStickPress = HidInputState.isPressed(hidInput.buttons1, 0b01000000);
-      rightStickTouch = HidInputState.isPressed(hidInput.buttons4, 0b10000000);
-      rightStickPress = HidInputState.isPressed(hidInput.buttons2, 0b00000100);
-
-      leftStickX = hidInput.lthumb_x;
-      leftStickY = hidInput.lthumb_y;
-      rightStickX = hidInput.rthumb_x;
-      rightStickY = hidInput.rthumb_y;
-
-      leftPadX = hidInput.lpad_x;
-      leftPadY = hidInput.lpad_y;
-      rightPadX = hidInput.rpad_x;
-      rightPadY = hidInput.rpad_y;
-
-      leftPadPressure = hidInput.lpad_pressure;
-      rightPadPressure = hidInput.rpad_pressure;
-
-      leftTrigger = hidInput.ltrig;
-      rightTrigger = hidInput.rtrig;
-
-      gyroAccelX = hidInput.accel_x;
-      gyroAccelY = hidInput.accel_y;
-      gyroAccelZ = hidInput.accel_z;
-
-      gyroYaw = hidInput.gyaw;
-      gyroRoll = hidInput.groll;
-      gyroPitch = hidInput.gpitch;
-      q1 = hidInput.q1;
-      q2 = hidInput.q2;
-      q3 = hidInput.q3;
-      q4 = hidInput.q4;
+    private bool IsSet(UInt16 buttonGroup, UInt16 buttonFlag) {
+      return (buttonGroup & buttonFlag) == buttonFlag;
     }
   }
+
+  public enum Button {
+    A, B, X, Y,
+    DpadDown, DpadUp, DpadLeft, DpadRight,
+    Menu, Steam, Options, QuickAccess,
+    L1, L2, L4, L5,
+    R1, R2, R4, R5,
+    LeftPadTouch, LeftPadPress, RightPadTouch, RightPadPress,
+    LeftStickTouch, LeftStickPress, RightStickTouch, RightStickPress
+  }
+
+  public enum Axis {
+    LeftStickX, LeftStickY, RightStickX, RightStickY,
+    LeftPadX, LeftPadY, RightPadX, RightPadY,
+    LeftPadPressure, RightPadPressure,
+    LeftTrigger, RightTrigger,
+    GyroAccelX, GyroAccelY, GyroAccelZ,
+    GyroYaw, GyroRoll, GyroPitch,
+    Q1, Q2, Q3, Q4
+  }
+
+  private static void RequestFeatureReport(IntPtr deviceHandle, byte[] requestBody) {
+    if (requestBody.Length > SteamDeckController.inputBufferLen)
+      throw new ArgumentException("requestBody length is greater than input inputBuffer length.");
+    
+    Array.Clear(featureReportRequest, 0, featureReportRequest.Length);
+    Array.Clear(featureReportResponse, 0, featureReportResponse.Length);
+
+    Array.Copy(requestBody, 0, featureReportRequest, 1, requestBody.Length);
+
+    int err = hid_send_feature_report(deviceHandle, featureReportRequest, (uint)(SteamDeckController.inputBufferLen + 1));
+    if (err < 0) {
+      throw new Exception($"Could not send report to hid device. Error: {err}");
+    }
+    err = hid_get_feature_report(deviceHandle, featureReportResponse, (uint)(SteamDeckController.inputBufferLen + 1));
+    if (err < 0) {
+      throw new Exception($"Could not get report from hid device. Error: {err}");
+    }
+  }
+
+  public static void DisableLizardModeForAWhile(IntPtr steamDeckControllerHandle) {
+    RequestFeatureReport(steamDeckControllerHandle, disableMouseEmulationBuffer);
+    RequestFeatureReport(steamDeckControllerHandle, disableButtonEmulationBuffer);
+  }
+
+  public static void DisableLizardMode(IntPtr steamDeckControllerHandle) {
+    DisableLizardModeForAWhile(steamDeckControllerHandle);
+    System.Timers.Timer disableLizardModeTimer = new System.Timers.Timer(1000);
+    disableLizardModeTimer.Elapsed += (s, e) => DisableLizardModeForAWhile(steamDeckControllerHandle);
+    disableLizardModeTimer.Start();
+  }
+
+  public static IntPtr CreateSteamDeckControllerHandle() {
+    var deviceHandle = IntPtr.Zero;
+    IntPtr deviceInfoPtr = hid_enumerate(SteamDeckController.vendorId, SteamDeckController.productId);
+    while (deviceInfoPtr != IntPtr.Zero) {
+      hid_device_info deviceInfo = PtrToStructure<hid_device_info>(deviceInfoPtr);
+      string path = PtrToStringAnsi(deviceInfo.path)!;
+      deviceHandle = hid_open_path(path);
+      if (deviceHandle != IntPtr.Zero) break;
+
+      deviceInfoPtr = deviceInfo.next;
+    }
+
+    if (deviceHandle == IntPtr.Zero) {
+      Console.WriteLine("Steam Deck Controller not found!");
+    }
+    return deviceHandle;
+  }
 }
+
